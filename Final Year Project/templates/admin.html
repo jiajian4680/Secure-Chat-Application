@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ChipChat | Admin Control Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+    <style>
+        body {
+            background: #0d1117;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+        }
+
+        .hidden { display: none !important; }
+
+        .admin-auth-container {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .auth-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 30px;
+            border-radius: 10px;
+            width: 400px;
+            color: white;
+        }
+
+        .auth-card input {
+            border: 1px solid #30363d;
+            color: #00ff41;
+            margin-bottom: 15px;
+        }
+
+        .auth-card input:focus {
+            background: #0d1117;
+            color: #00ff41;
+            border-color: #00ff41;
+            box-shadow: none;
+        }
+
+        .admin-card {
+            background: #161b22;
+            color: white;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .admin-tabs button {
+            min-width: 230px;
+            font-weight: bold;
+        }
+
+        .log-container {
+            background: #000;
+            border: 1px solid;
+            height: 60vh;
+            overflow-y: auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px #00ff4133;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #1a1a1a;
+            padding: 10px 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .timestamp {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        .ciphertext {
+            color: #ff003c;
+            word-break: break-all;
+            background: #1a0005;
+            padding: 10px;
+            border-radius: 5px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .threat-box {
+            background: #1a0005;
+            border: 1px solid #ff003c;
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        @media print {
+            .no-print { display: none; }
+            body { background: white; color: black; }
+            .log-container { height: auto; border: none; }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- AUTHENTICATION SECTION -->
+<div id="admin-auth" class="admin-auth-container">
+
+    <div id="admin-login-card" class="auth-card shadow">
+        <h3 class="text-center mb-4">Admin Login</h3>
+
+        <input type="text" id="admin-id" class="form-control" placeholder="Admin ID"
+               onkeypress="if(event.key==='Enter') handleAdminAuth('login')">
+
+        <input type="password" id="admin-pass" class="form-control" placeholder="Password"
+               onkeypress="if(event.key==='Enter') handleAdminAuth('login')">
+
+        <button onclick="handleAdminAuth('login')" class="btn btn-success w-100 mb-3">
+            Authorize
+        </button>
+
+        <p class="text-center small">
+            First time?
+            <a href="#" onclick="toggleAuth('signup')" class="text-success">
+                Register System Admin
+            </a>
+        </p>
+    </div>
+
+    <div id="admin-signup-card" class="auth-card shadow hidden">
+        <h3 class="text-center mb-4">System Registration</h3>
+
+        <input type="text" id="reg-admin-id" class="form-control"
+               placeholder="New Admin ID" minlength="4" required>
+
+        <input type="password" id="reg-admin-pass" class="form-control"
+               placeholder="New Password"
+               minlength="8"
+               pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$"
+               title="Password must be at least 8 characters, including uppercase, lowercase, number, and special character."
+               required>
+
+        <input type="password" id="reg-admin-confirm" class="form-control"
+               placeholder="Confirm Password" required
+               onkeypress="if(event.key==='Enter') handleAdminAuth('signup')">
+
+        <button onclick="handleAdminAuth('signup')" class="btn btn-primary w-100 mb-3">
+            Create Admin
+        </button>
+
+        <p class="text-center small">
+            Have ID?
+            <a href="#" onclick="toggleAuth('login')" class="text-success">Login</a>
+        </p>
+    </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="admin-monitor" class="container hidden">
+
+    <div class="d-flex justify-content-between align-items-center mt-4 no-print">
+        <div>
+            <h2>🛡️ ChipChat Security Operations Center</h2>
+            <small class="text-white">
+                Database Security | E2EE Monitoring | Attack Evidence
+            </small>
+        </div>
+
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-light">
+                📄 Generate Report
+            </button>
+            <button onclick="adminLogout()" class="btn btn-outline-danger ms-2">
+                🔒 Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- TOP BUTTONS -->
+    <div class="admin-tabs no-print mt-4">
+        <button class="btn btn-success" onclick="showAdminSection('database-section')">
+            🔐 Database Security Evidence
+        </button>
+
+        <button class="btn btn-primary" onclick="showAdminSection('system-section')">
+            💬 E2EE / System Monitor
+        </button>
+
+        <button class="btn btn-danger" onclick="showAdminSection('attack-section')">
+            🚨 Attack / Threat Monitor
+        </button>
+    </div>
+
+    <!-- DATABASE SECURITY -->
+    <div id="database-section" class="admin-section mt-4">
+        <div class="card admin-card p-3">
+            <h4>🔐 Database Security Evidence</h4>
+            <p class="small text-white">
+                This section proves that sensitive data is not stored in plaintext.
+                User ID is hashed, phone number is encrypted, and password is hashed.
+            </p>
+
+            <button onclick="loadDatabaseSecurity()" class="btn btn-outline-success btn-sm mb-3">
+                Load Database Evidence
+            </button>
+
+            <div class="table-responsive">
+                <table class="table table-dark table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Hashed ID</th>
+                            <th>Encrypted Phone</th>
+                            <th>Hashed Password</th>
+                        </tr>
+                    </thead>
+                    <tbody id="database-security-body">
+                        <tr>
+                            <td colspan="4" class="text-white">
+                                Click button to load database evidence.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYSTEM / E2EE MONITOR -->
+    <div id="system-section" class="admin-section mt-4 hidden">
+        <div class="card admin-card p-3">
+            <h4>💬 E2EE / System Monitor</h4>
+            <p class="small text-white">
+                Shows authentication activity, password reset, block activity, and encrypted message relay.
+                Admin can view ciphertext and wrapped keys, but cannot read plaintext messages.
+            </p>
+
+            <div class="log-container" id="system-logs">
+                <div class="log-entry">
+                    <span class="timestamp">[SYSTEM]</span>
+                    ChipChat E2EE system monitor started.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATTACK MONITOR -->
+    <div id="attack-section" class="admin-section mt-4 hidden">
+        <div class="card admin-card p-3">
+            <h4>🚨 Attack / Threat Monitor</h4>
+
+            <button onclick="loadAttackLogs()" class="btn btn-outline-danger btn-sm mb-3">
+                Load Saved Attack Logs
+            </button>
+
+            <p class="small text-white">
+                This monitor is used to show attack simulation evidence such as brute-force attempts,
+                SQL injection attempts, XSS payloads, unauthorized access, suspicious login activity,
+                and blocked malicious requests.
+            </p>
+
+            <div class="threat-box mb-3">
+                <strong>Threat Monitor Status:</strong> Active<br>
+                <small>Waiting for attack simulation events...</small>
+            </div>
+
+            <div class="log-container" id="attack-logs">
+                <div class="log-entry text-danger">
+                    <span class="timestamp">[SYSTEM]</span>
+                    No attack detected yet.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark text-white p-3 border-secondary no-print mt-3 mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <span class="text-success">● Server Status: Online</span>
+            </div>
+            <div class="col-md-6 text-end">
+                <small class="text-muted">ChipChat Protocol v2.0 | SOC Dashboard</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+
+    function toggleAuth(mode) {
+        document.getElementById('admin-login-card').classList.toggle('hidden', mode === 'signup');
+        document.getElementById('admin-signup-card').classList.toggle('hidden', mode === 'login');
+    }
+
+    function showAdminSection(sectionId) {
+        document.querySelectorAll(".admin-section").forEach(sec => {
+            sec.classList.add("hidden");
+        });
+
+        document.getElementById(sectionId).classList.remove("hidden");
+    }
+
+    async function handleAdminAuth(type) {
+        const id = document.getElementById(type === 'login' ? 'admin-id' : 'reg-admin-id').value;
+        const pass = document.getElementById(type === 'login' ? 'admin-pass' : 'reg-admin-pass').value;
+
+        if (!id || !pass) return alert("Please fill all fields");
+
+        if (type === 'signup') {
+            const confirm = document.getElementById('reg-admin-confirm').value;
+            if (pass !== confirm) return alert("Passwords do not match");
+        }
+
+        const res = await fetch('/admin_' + (type === 'login' ? 'login' : 'register'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id: id, password: pass })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            if (type === 'login') {
+                localStorage.setItem("adminLoggedIn", "true");
+
+                document.getElementById('admin-auth').classList.add('hidden');
+                document.getElementById('admin-monitor').classList.remove('hidden');
+
+                socket.emit('join_admin');
+            } else {
+                alert("Admin registration successful! Please log in.");
+                toggleAuth('login');
+            }
+        } else {
+            alert(data.message);
+        }
+    }
+
+    socket.on('admin_log', (data) => {
+        const logBox = document.getElementById('system-logs');
+
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+
+        const time = new Date().toLocaleTimeString();
+
+        let content = `<span class="timestamp">[${time}]</span> `;
+        content += `<span class="badge ${data.type === 'AUTH' ? 'bg-warning' : 'bg-primary'}">${data.type}</span> `;
+        content += `<strong>${data.event}</strong>`;
+
+        if (data.type === "MSG") {
+            content += `
+<pre class="ciphertext small mt-2">
+🔒 [E2EE PROTOCOL] SECURE MESSAGE RELAY
+DIRECTION    : ${data.details.from}  >>>  ${data.details.to}
+MEDIA TYPE   : ${data.details.mediaType}
+------------------------------------------------------------
+CIPHERTEXT   : ${data.details.ciphertext.substring(0, 80)}...
+WRAPPED KEY  : ${data.details.wrappedKey.substring(0, 80)}...
+════════════════════════════════════════════════════════════
+</pre>`;
+        } else {
+            content += ` - ${data.details}`;
+        }
+
+        div.innerHTML = content;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+
+        let logs = JSON.parse(localStorage.getItem("adminLogs") || "[]");
+        logs.push(div.innerHTML);
+        localStorage.setItem("adminLogs", JSON.stringify(logs));
+    });
+
+    async function loadDatabaseSecurity() {
+        const res = await fetch('/admin_database_security');
+        const data = await res.json();
+
+        const tbody = document.getElementById('database-security-body');
+        tbody.innerHTML = "";
+
+        if (!data.users || data.users.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-muted">No users found in database.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        data.users.forEach(user => {
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                <td>${user.username}</td>
+                <td style="word-break: break-all;">${user.hashed_id}</td>
+                <td style="word-break: break-all;">${user.phone_enc}</td>
+                <td style="word-break: break-all;">${user.password}</td>
+            `;
+
+            tbody.appendChild(row);
+        });
+    }
+
+    function adminLogout() {
+        localStorage.removeItem("adminLoggedIn");
+        localStorage.removeItem("adminLogs");
+        location.reload();
+    }
+
+    socket.on('attack_log', (data) => {
+    const logBox = document.getElementById("attack-logs");
+    const div = document.createElement("div");
+    div.className = "log-entry text-danger";
+    const time = new Date().toLocaleTimeString();
+    div.innerHTML = `
+        <span class="timestamp">[${time}]</span>
+        <span class="badge bg-danger">ATTACK</span>
+        <strong>${data.attackType}</strong>
+        <pre class="ciphertext small mt-2">
+TYPE      : ${data.attackType}
+SOURCE    : ${data.source}
+TARGET    : ${data.target}
+PAYLOAD   : ${data.payload}
+ACTION    : ${data.action}
+        </pre>
+    `;
+
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+});
+
+async function loadAttackLogs() {
+    const res = await fetch('/admin_attack_logs');
+    const data = await res.json();
+
+    const logBox = document.getElementById("attack-logs");
+    logBox.innerHTML = "";
+
+    data.logs.forEach(log => {
+        const div = document.createElement("div");
+        div.className = "log-entry text-danger";
+
+        div.innerHTML = `
+            <span class="timestamp">[${log.timestamp}]</span>
+            <span class="badge bg-danger">ATTACK</span>
+            <strong>${log.attack_type}</strong>
+            <pre class="ciphertext small mt-2">
+TYPE      : ${log.attack_type}
+SOURCE    : ${log.source}
+TARGET    : ${log.target}
+PAYLOAD   : ${log.payload}
+ACTION    : ${log.action}
+            </pre>
+        `;
+
+        logBox.appendChild(div);
+    });
+}
+
+    window.onload = function() {
+        if (localStorage.getItem("adminLoggedIn") === "true") {
+            document.getElementById('admin-auth').classList.add('hidden');
+            document.getElementById('admin-monitor').classList.remove('hidden');
+            socket.emit('join_admin');
+        }
+
+        const savedLogs = JSON.parse(localStorage.getItem("adminLogs") || "[]");
+
+        savedLogs.forEach(log => {
+            const div = document.createElement("div");
+            div.className = "log-entry";
+            div.innerHTML = log;
+            document.getElementById("system-logs").appendChild(div);
+        });
+    };
+</script>
+
+</body>
+</html>

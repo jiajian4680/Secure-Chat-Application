@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChipChat</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/chipchat.png') }}">
+    <!-- 1. Bootstrap CSS & JS Bundle -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="page-login" class="container d-flex justify-content-center align-items-center" style="min-height:100vh;">
+    <div class="card auth-card p-4 shadow">
+        <div class="text-center mb-3">
+            <img src="{{ url_for('static', filename='images/chipchat.png') }}" style="width:250px; max-width:100%;">
+        </div>
+        <h3 class="text-center mb-4">Login</h3>
+
+        <input type="tel" id="login-phone" class="form-control mb-3" placeholder="Phone Number" onkeypress="if(event.key==='Enter') handleAuth('login')">
+
+        <div class="input-group mb-3">
+            <input type="password" id="login-pass" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') handleAuth('login')">
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('login-pass', this)">Show</button>
+        </div>
+
+        <button onclick="handleAuth('login')" class="btn btn-primary w-100">Login</button>
+        <p class="text-center mt-3">
+            <a href="#" onclick="showPage('page-forgot-password')">Forgot Password?</a><br>
+            No account? <a href="#" onclick="showPage('page-signup')">Sign Up</a>
+        </p>
+    </div>
+</div>
+
+<!-- FORGOT PASSWORD PAGE -->
+<div id="page-forgot-password" class="container d-flex justify-content-center">
+    <div class="card auth-card p-4 shadow">
+        <h3 class="text-center mb-4">Reset Password</h3>
+        
+        <!-- Step 1: Phone Input -->
+        <div id="forgot-step-1">
+            <input type="tel" id="forgot-phone" class="form-control mb-3" placeholder="Phone Number" 
+            pattern="^(011\d{8}|01[0-9]\d{7})$" title="Enter a valid 10-11 digit phone number." required>
+            <button onclick="sendOTP()" class="btn btn-warning w-100">Send OTP via SMS</button>
+        </div>
+
+        <!-- Step 2: OTP Input (Hidden by default) -->
+        <div id="forgot-step-2" class="hidden">
+            <p class="text-success small">OTP sent to your phone.</p>
+            <input type="text" id="forgot-otp" class="form-control mb-3" placeholder="Enter 6-Digit OTP">
+            <button onclick="verifyOTP()" class="btn btn-primary w-100">Verify OTP</button>
+        </div>
+
+        <!-- Step 3: New Password Input (Hidden by default) -->
+        <div id="forgot-step-3" class="hidden">
+            <div class="input-group mb-3">
+                <input type="password" id="forgot-new-pass" class="form-control" placeholder="New Password"
+                    minlength="8"
+                    pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])[A-Za-z\d@$!%*?&._\-]{8,}$"
+                    title="Password must be at least 8 characters, including one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&._-).">
+                <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('forgot-new-pass', this)">Show</button>
+            </div>
+            <div class="input-group mb-3">
+            <input type="password" id="forgot-confirm-pass" class="form-control" placeholder="Confirm New Password" required>
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('forgot-confirm-pass', this)">Show</button>
+            </div>
+            <button onclick="resetPassword()" class="btn btn-success w-100">Update Password</button>
+        </div>
+
+        <p class="text-center mt-3"><a href="#" onclick="showPage('page-login')">Back to Login</a></p>
+    </div>
+</div>
+
+<!-- SIGNUP PAGE -->
+<!-- SIGNUP PAGE -->
+<div id="page-signup"  class="container d-flex justify-content-center align-items-center" style="min-height:100vh;">
+    <div class="card auth-card p-4 shadow">
+        <div class="text-center mb-3">
+            <img src="{{ url_for('static', filename='images/chipchat.png') }}" style="width:250px; max-width:100%;">
+        </div>
+
+        <h3 class="text-center mb-4">Sign Up</h3>
+
+        <input type="text" id="reg-username" class="form-control mb-3" placeholder="Username"
+               minlength="3" maxlength="20" pattern="^[a-zA-Z0-9_ ]+$"
+               title="Username must be 3-20 characters and only contain letters, numbers, and underscores." required>
+
+        <input type="tel" id="reg-phone" class="form-control mb-3" placeholder="Phone Number"
+               pattern="^(011\d{8}|01[0-9]\d{7})$"
+               title="Enter a valid 10-11 digit phone number." required>
+
+        <div class="input-group mb-3">
+            <input type="password" id="reg-pass" class="form-control" placeholder="Password"
+                   minlength="8"
+                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])[A-Za-z\d@$!%*?&._\-]{8,}$"
+                   title="Password must be at least 8 characters, including one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&._-)." required>
+
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('reg-pass', this)">
+                Show
+            </button>
+        </div>
+
+        <div class="input-group mb-3">
+            <input type="password" id="reg-confirm" class="form-control" placeholder="Confirm Password"
+                   required onkeypress="if(event.key==='Enter') handleAuth('signup')">
+
+            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('reg-confirm', this)">
+                Show
+            </button>
+        </div>
+
+        <button onclick="handleAuth('signup')" class="btn btn-success w-100">
+            Create Account
+        </button>
+
+        <p class="text-center mt-3">
+            Have account? <a href="#" onclick="showPage('page-login')">Login</a>
+        </p>
+    </div>
+</div>
+
+<!-- MAIN CHAT DASHBOARD -->
+<div id="page-chat" class="main-container hidden">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="p-3 bg-primary text-white">
+            <h5 class="m-0" id="display-my-username">Username</h5>
+            <small id="display-my-phone" class="d-none"></small> 
+        </div>
+
+        <!-- Search Bar -->
+        <div class="p-2 border-bottom bg-light">
+            <div class="input-group">
+                <input type="text" id="user-search" class="form-control" placeholder="🔍 Search phone number..." oninput="filterUsers()">
+                <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">x</button>
+            </div>
+        </div>
+
+        <!-- User List -->
+        <div id="user-list" class="flex-grow-1 overflow-auto"></div>
+
+        <!-- Sidebar Bottom Buttons -->
+        <div class="p-2 border-top d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm w-100" onclick="openProfile()">👤 Me</button>
+            <button class="btn btn-outline-danger btn-sm w-100" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area">
+        <!-- Empty State (No user selected) -->
+        <div id="empty-state" class="empty-chat">
+        <img src="{{ url_for('static', filename='images/chipchat.png') }}" width="400" style="opacity: 0.8;">
+        <p class="text-muted mt-3">Select a contact to start chatting securely.</p>
+        </div>
+
+        <!-- Chat Header -->
+        <div id="chat-header" class="p-3 bg-white border-bottom hidden d-flex align-items-center gap-2">
+            <button id="mobile-back-btn" class="btn btn-light btn-sm d-none" onclick="backToUserList()">←</button>
+            <span class="contact-header" onclick="openContactInfo()">
+            👤 <strong id="chat-target-name"></strong>
+                <small class="text-muted">(Tap for info)</small>
+            </span>
+</div>
+
+<!-- CONTACT INFO MODAL -->
+    <div id="modal-contact-info" class="container d-flex justify-content-center align-items-center hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; align-items: center;">
+        <div class="card auth-card p-4 shadow" style="width: 350px; margin-top: 0;">
+            <h4 class="text-center mb-4">Contact Info</h4>
+            
+            <label class="small fw-bold">ID (Phone Number)</label>
+            <input type="text" id="info-phone" class="form-control mb-3" readonly style="background: #f0f0f0;">
+            
+            <label class="small fw-bold">Username</label>
+            <input type="text" id="info-username" class="form-control mb-3" readonly style="background: #f0f0f0;">
+            
+            <label class="small fw-bold text-primary">Remark / Alias</label>
+            <input type="text" id="info-remark" class="form-control mb-4" placeholder="Set a nickname...">
+            
+            <div class="d-flex flex-column gap-2">
+                <button onclick="saveRemark()" class="btn btn-primary w-100">Save Remark</button>
+                <!-- Block Button -->
+                <button onclick="blockUser()" class="btn btn-danger w-100">Block User</button>
+                <button onclick="deleteConversation(selectedTarget)" class="btn btn-warning w-100">Delete Chat</button>
+                <button onclick="closeContactInfo()" class="btn btn-light w-100 border">Close</button>
+            </div>
+
+        </div>
+    </div>
+
+        <!-- Messages Pane -->
+        <div id="message-pane" class="message-pane"></div>
+
+        <!-- Input Area -->
+        <div id="input-area" class="p-3 bg-light d-flex gap-2 hidden align-items-center">
+            <!-- Hidden File Inputs -->
+            <input type="file" id="image-input" accept="image/*" class="d-none" multiple onchange="handleFileSelect(event, 'image')">
+            <input type="file" id="video-input" accept="video/*" class="d-none" multiple onchange="handleFileSelect(event, 'video')">
+            <input type="file" id="gif-input" accept="image/gif" class="d-none" multiple onchange="handleFileSelect(event, 'image')">
+            <input type="file" id="audio-input" accept="audio/*" class="d-none" onchange="handleFileSelect(event, 'audio')">
+
+            <!-- Plus Menu Dropdown -->
+            <div class="dropdown" id="input-dropdown">
+                <button class="btn btn-outline-secondary rounded-circle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    +
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="document.getElementById('image-input').click()">📷 Image</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="document.getElementById('gif-input').click()">👾 GIF</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="document.getElementById('video-input').click()">🎥 Video</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="document.getElementById('audio-input').click()">🎵 Audio</a></li>
+                </ul>
+            </div>
+
+            <!-- Voice Control Buttons -->
+            <button id="voice-btn" class="btn btn-outline-secondary rounded-circle" onclick="toggleVoiceRecorder()">🎤</button>
+            <button id="cancel-record-btn" class="btn btn-outline-danger rounded-circle d-none" onclick="cancelRecording()">🗑️</button>
+            <span id="recording-status" class="text-danger fw-bold d-none animate-flicker">Recording...</span>
+
+            <!-- Text Input -->
+            <input type="text" id="msg-input" class="form-control" placeholder="Type a message...">
+            
+            <!-- Send Button -->
+            <button id="send-btn" onclick="sendEncrypted()" class="btn btn-primary">Send</button>
+        </div>
+    </div> 
+</div>
+
+<!-- PROFILE PAGE (Overlay) -->
+<div id="page-profile" class="container d-flex justify-content-center align-items-center hidden" style="min-height:100vh;">
+    <div class="card auth-card p-4 shadow">
+        <h3 class="text-center mb-4">Edit Profile</h3>
+        
+        <label class="small fw-bold">Username</label>
+        <input type="text" id="edit-username" class="form-control mb-3"
+                minlength="3" maxlength="20" pattern="^[a-zA-Z0-9_]+$" 
+                title="Username must be 3-20 characters and only contain letters, numbers, and underscores.">
+
+        <label class="small fw-bold">Phone Number</label>
+        <input type="tel" id="edit-phone" class="form-control mb-3"
+        pattern="^(011\d{8}|01[0-9]\d{7})$" title="Enter a valid 10-11 digit phone number.">
+
+        <h6 class="fw-bold">Change Password</h6>
+        <small class="text-muted">Leave blank if you don't want to change</small>
+
+        <div class="input-group mb-3">        
+        <input type="password" id="edit-old-pass" class="form-control" placeholder="Current Password">
+        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('edit-old-pass', this)">Show</button>
+        </div>
+        <div class="input-group mb-3">
+        <input type="password" id="edit-new-pass" class="form-control" placeholder="New Password"
+                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])[A-Za-z\d@$!%*?&._\-]{8,}$"
+                title="Password must be at least 8 characters, including one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&._-).">
+        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('edit-new-pass', this)">Show</button>
+        </div>
+
+        <div class="input-group mb-3">
+        <input type="password" id="edit-confirm-pass" class="form-control" placeholder="Confirm New Password">
+        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('edit-confirm-pass', this)">Show</button>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button onclick="updateProfile()" class="btn btn-success w-100">Save Changes</button>
+            <button onclick="showPage('page-chat')" class="btn btn-secondary w-100">Cancel</button>
+        </div>
+        
+        <hr>
+        <button onclick="deactivateAccount()" class="btn btn-danger w-100">Deactivate Account</button>
+        <p class="text-muted small mt-3">Warning: This deletes all data forever.</p>
+    </div>
+</div>
+
+</body>
+</html
